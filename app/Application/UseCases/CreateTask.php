@@ -7,12 +7,14 @@ use App\Domain\Interfaces\TaskRepositoryInterface;
 use DateTimeImmutable;
 use App\Domain\Events\TaskWasCreated;
 use App\Infrastructure\Events\Dispatcher;
+use App\Infrastructure\EventSourcing\EventRecorder;
 
 
 class CreateTask
 {
     public function __construct(
         private readonly TaskRepositoryInterface $repository,
+        private readonly EventRecorder $eventRecorder,
         private readonly Dispatcher $dispatcher
     ) {}
 
@@ -29,7 +31,12 @@ class CreateTask
 
         $task = $this->repository->save($task);
 
-        $this->dispatcher->dispatch(new TaskWasCreated($task));
+        $event = new TaskWasCreated($task);
+
+        // 🔥 Записываем в Event Store
+        $this->eventRecorder->record((string) $task->id, $event);
+
+        $this->dispatcher->dispatch($event);
 
         return $task;
     }
